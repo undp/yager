@@ -1,0 +1,88 @@
+# Vulnerability Assessment Report
+
+## Azure Subscription Details
+
+* **Name**: {{ subscription_name }}
+* **Id**: {{ subscription_id }}
+* **Contact**: {{ subscription_poc_name }} [{{ subscription_poc_email }}]
+* **Unique hosts**: {{ all_host_details | groupby("host_vm_id") | count}}
+* **Unique vulnerabilities**: {{ all_vuln_details | groupby("vuln_qid") | count}}
+
+## Statistics
+
+### Vulnerabilities By Severity
+
+* [Urgent](#severity-urgent): {{ all_vuln_details | selectattr("vuln_level", "eq", 5) | groupby("vuln_qid") | count}}
+* [Critical](#severity-critical): {{ all_vuln_details | selectattr("vuln_level", "eq", 4) | groupby("vuln_qid") | count}}
+* [Serious](#severity-serious): {{ all_vuln_details | selectattr("vuln_level", "eq", 3) | groupby("vuln_qid") | count}}
+* [Medium](#severity-medium): {{ all_vuln_details | selectattr("vuln_level", "eq", 2) | groupby("vuln_qid") | count}}
+* [Minimal](#severity-minimal): {{ all_vuln_details | selectattr("vuln_level", "eq", 1) | groupby("vuln_qid") | count}}
+
+### Vulnerabilities By Hosts
+{% for host_vm_id, vulns in all_vuln_details | groupby("host_vm_id") -%}
+{%     set host_details = all_host_details | selectattr("host_vm_id", "eq", host_vm_id) | first %}
+* {{  host_details.host_name | upper }} [[VMID: {{ host_vm_id }}]](#vmid-{{ host_vm_id }}): {{ vulns | count -}}
+{%- endfor %}
+
+## Details
+
+### Hosts
+{% for host_vm_id in all_vuln_details | map(attribute='host_vm_id') | unique | sort %}
+#### VMID: {{ host_vm_id }}
+
+[Back to Top](#vulnerability-assessment-report)
+{%     set host_details = all_host_details | selectattr("host_vm_id", "eq", host_vm_id) | first %}
+Hostname: **{{ host_details.host_name | upper }}**
+OS: {{ host_details.host_os }}
+Last Scaned: {{ host_details.host_last_scan }}
+FQDN: `{{ host_details.host_fqdn }}`
+Azure Resource Group: {{ host_details.host_rg }}
+Private IP: {{ host_details.host_priv_ip }}
+{%     if  host_details.host_pub_ip != "undefined" -%}
+Public IP: {{ host_details.host_pub_ip }}
+{%     endif -%}
+{%     set affected_vulns = all_vuln_details | selectattr("host_vm_id", "eq", host_vm_id) | list -%}
+Vulnerabilities: **{{ affected_vulns | count }}**
+{%     for vuln_level, vulns in affected_vulns | groupby("vuln_level")  | reverse%}
+* **{{ vuln_level | replace("5","Urgent")  | replace("4","Critical") | replace("3","Serious") | replace("2","Medium") | replace("1","Minimal")}}: {{ vulns | count }}**
+{%-         for v in vulns %}
+{%-         set details_from_kb = kb_details | selectattr("vuln_qid", "eq", v.vuln_qid) | first %}
+  * {{ details_from_kb.vuln_title }} [[QID: {{ v.vuln_qid}}]](#qid-{{ v.vuln_qid}})
+{%-        endfor %}
+{%-     endfor %}
+{% endfor %}
+### Vulnerabilities
+{%- for vuln_level in all_vuln_details | map(attribute='vuln_level') | unique | sort | reverse %}
+
+#### Severity: {{ vuln_level | replace("5","Urgent")  | replace("4","Critical") | replace("3","Serious") | replace("2","Medium") | replace("1","Minimal")}}
+{%-     for vuln_qid in all_vuln_details | selectattr("vuln_level", "eq", vuln_level) | map(attribute='vuln_qid') | unique | sort %}
+
+##### QID: {{ vuln_qid }}
+
+[Back to Top](#vulnerability-assessment-report)
+{%         set details_from_kb = kb_details | selectattr("vuln_qid", "eq", vuln_qid) | first %}
+###### Details
+
+Title: **{{ details_from_kb.vuln_title }}**
+Severity: **{{ vuln_level | replace("5","Urgent")  | replace("4","Critical") | replace("3","Serious") | replace("2","Medium") | replace("1","Minimal")}}**
+{%         set affected_hosts = all_vuln_details | selectattr("vuln_qid", "eq", vuln_qid) | sort(attribute="host_name") -%}
+Affected hosts: **{{ affected_hosts | count }}**
+{%         for vuln in affected_hosts %}
+* {{ vuln.host_name | upper }} [[VMID: {{ vuln.host_vm_id }}]](#vmid-{{ vuln.host_vm_id }})
+  * first found: {{ vuln.vuln_seen_first }}
+  * last seen:   {{ vuln.vuln_seen_last }}
+{%         endfor %}
+{%-        if  details_from_kb.vuln_risk != "not found" %}
+###### Risk
+
+{{ details_from_kb.vuln_risk | trim }}
+{%         endif %}
+###### Solution
+
+{{ details_from_kb.vuln_solution | trim }}
+
+###### More details
+
+{{ details_from_kb.vuln_details | trim }}
+{%-     endfor -%}
+{%- endfor -%}
