@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "yager"
-version = "0.1.0rc1"
+version = "0.1.0"
 description = "Yet Another GEneric Reporter tool for parsing of XML data into an SQLite database and subsequent universal reporting based on SQL queries and Jinja2 templates."
 
 authors = [
