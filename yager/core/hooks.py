@@ -22,15 +22,15 @@ def load_db(app: App) -> None:
 
     data_config: Dict[str, str] = app.config.get("yager", "data")
     if data_config:
-        db_uri: str = data_config.get(
-            "db_uri", "file:./instance/data/qualys.db?mode=ro"
-        )
+        db_uri: str = data_config.get("db_uri", "file:/home/user/.yager/data/sqlite.db")
 
     app.log.debug("Using database at '{}'".format(db_uri))  # noqa: G001
 
     try:
         db_connection: Connection = connect(db_uri)
     except OperationalError as e:
+        app.extend("db_cursor", None)
+
         app.log.error("OperationalError: {}".format(str(e)))  # noqa: G001
 
         if app.debug:

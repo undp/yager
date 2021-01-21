@@ -1,17 +1,14 @@
 """Main app module."""
-from cement import App, TestApp
+from cement import App, TestApp, init_defaults
 from cement.core.exc import CaughtSignal
-
-from yaml import FullLoader, load as yaml_load
 
 from .controllers.base import Base
 from .core.exc import YagerError
 from .core.hooks import load_db, log_app_version
 from .core.log import YagerLogHandler
 
-# load configuration defaults
-with open("./config/etc/yager_example.yaml") as default_conf_file:
-    CONFIG = yaml_load(default_conf_file, Loader=FullLoader)
+# configuration defaults
+CONFIG = init_defaults("yager", "yager.data", "yager.reports")
 
 
 class Yager(App):

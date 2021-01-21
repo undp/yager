@@ -6,8 +6,10 @@ yager:
 
   # Data location and layout
   data:
-    # URI to the SQLite3 database with Qualys data
-    db_uri: "file:./instance/data/results.db"
+    # URI to the SQLite3 database with data
+    # More details on URI format and options could be found [here][1]
+    # [1]: https://www.sqlite.org/uri.html
+    db_uri: "file:/home/user/.yager/data/sqlite.db"
 
     # Tables exclude from deletion during `refresh-db`
     exclude_from_refresh: [
@@ -86,7 +88,7 @@ yager:
           hostAssetsId: ".//HostAssetVuln/[hostInstanceVulnId='{id}']/.../.../.../id"
 
     # Path to directory with Jinja2 templates for reports
-    template_dir: "./config/templates/"
+    template_dir: "/home/user/.yager/templates/"
 
   # Templated reports
   reports:

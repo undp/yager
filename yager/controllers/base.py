@@ -41,7 +41,7 @@ class Base(Controller):
             (["-v", "--version"], {"action": "version", "version": VERSION_BANNER}),
         ]
 
-    def _query_db(self, sql_query: str) -> Cursor:
+    def _query_db(self, sql_query: str) -> Optional[Cursor]:
         """Query database.
 
         Helper to execute `sql_query` against the app database.
@@ -57,6 +57,11 @@ class Base(Controller):
             If successful, returns :obj:`~sqlite3.Cursor` with results.
             Otherwise returns ``None``.
         """
+        # Stop processing, if DB is not available
+        if self.app.db_cursor is None:
+            self.app.log.error("No database connection")
+            return
+
         self.app.log.debug("Executing query '{}'".format(sql_query))
 
         response: Optional[Cursor] = None
@@ -98,6 +103,11 @@ class Base(Controller):
     )
     def query(self) -> None:
         """Execute a query against the app database."""
+        # Stop processing, if DB is not available
+        if self.app.db_cursor is None:
+            self.app.log.error("No database connection")
+            return
+
         # get required params from CLI
         out_format: str = self.app.pargs.output_format
         sql_query: str = self.app.pargs.sql_query
@@ -142,6 +152,11 @@ class Base(Controller):
     )
     def report(self) -> None:
         """Execute a pre-configured report."""
+        # Stop processing, if DB is not available
+        if self.app.db_cursor is None:
+            self.app.log.error("No database connection")
+            return
+
         # get required params from app config
         all_report_configs: List[Dict] = self.app.config.get("yager", "reports")
         all_report_names: List[str] = list(map(lambda x: x["name"], all_report_configs))
@@ -239,6 +254,11 @@ class Base(Controller):
     )
     def refresh_db(self) -> None:
         """Generate database from configured layout and data sources."""
+        # Stop processing, if DB is not available
+        if self.app.db_cursor is None:
+            self.app.log.error("No database connection")
+            return
+
         # get required params from app config
         all_data_configs: List[Dict] = self.app.config.get("yager", "data")
 
