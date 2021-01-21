@@ -50,7 +50,7 @@
 * `~/.yager/config/yager.yaml`
 * `~/.yager.yaml`
 
-Below is the [example configuration file][yagerConfigRef] that parses XML data from [Qualys Cloud Agent API][QualysCloudAgentAPIRef] about Azure VMs and generates reports for each Azure Subscription.
+An example configuration file allowing to parse XML data about Azure VMs from [Qualys Cloud Agent API][QualysCloudAgentAPIRef] and to generate reports for each Azure Subscription can be found [here][yagerConfigRef] .
 
 [yagerConfigRef]: config/etc/yager_example.yaml
 [QualysCloudAgentAPIRef]: https://www.qualys.com/docs/qualys-ca-api-user-guide.pdf

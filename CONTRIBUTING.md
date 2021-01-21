@@ -156,7 +156,7 @@ This project uses `gitchangelog` to automatically generate the content of [CHANG
 1. Clone the repo to your workstation:
 
     ```sh
-    git clone https://github.com/undp/pykv.git pykv
+    git clone https://github.com/undp/yager.git yager
     ```
 
 1. Create a new feature branch named `feature/fooBar` from the `master` branch:
