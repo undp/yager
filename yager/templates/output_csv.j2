@@ -1,0 +1,8 @@
+{%- for h in header %}
+{{- h -}}{% if not loop.last %},{% endif %}
+{%- endfor %}
+{%- for r in records %}
+{% for c in r -%}
+"{{ c }}"{% if not loop.last %},{% endif %}
+{%- endfor %}
+{%- endfor %}

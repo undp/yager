@@ -1,0 +1,194 @@
+### Yager Configuration Settings
+---
+yager:
+  # Toggle application level debug (does not toggle Cement framework debugging)
+  # debug: true
+
+  # Data location and layout
+  data:
+    # URI to the SQLite3 database with data
+    # More details on URI format and options could be found [here][1]
+    # [1]: https://www.sqlite.org/uri.html
+    db_uri: "file:/home/user/.yager/data/sqlite.db"
+
+    # Tables exclude from deletion during `refresh-db`
+    exclude_from_refresh: [
+      "QualysKB",
+    ]
+
+    # List of table definitions
+    layout:
+        # Table name
+      - name: AzureSubscriptions
+        # Table columns described as an SQL statement;
+        # Used in `CREATE TABLE IF NOT EXISTS {name} ({columns})`
+        columns: |
+          id TEXT PRIMARY KEY,
+          name TEXT,
+          contactName TEXT,
+          contactEmail TEXT
+        # Source of data for the table in a form of `{type}:{locator}`
+        #   {type} could be `csv` or `xml`
+        #   {locator} is a file path for `csv` type or XPath for `xml`
+        #   XML files are provided with `--file path/to/file.xml` option
+        data_source: csv:./instance/subscriptions.csv
+
+      - name: HostAssets
+        columns: |
+          id INTEGER PRIMARY KEY,
+          name TEXT,
+          fqdn TEXT,
+          os TEXT,
+          firstSeen DATETIME,
+          lastUpdated DATETIME,
+          lastVulnScan DATETIME,
+          azureVmId TEXT,
+          azureRgName TEXT,
+          azurePublicIp TEXT,
+          azurePrivateIp TEXT,
+          azureSubscriptionId TEXT,
+          FOREIGN KEY (azureSubscriptionId)
+              REFERENCES AzureSubscriptions (id)
+        data_source: xml:.//HostAsset
+        # Mapping between table columns and XPath to text values
+        # of sub-elements for each element returned by `data_source` XPath
+        input_map:
+          id: id
+          name: name
+          fqdn: fqdn
+          os: os
+          firstSeen: created
+          lastUpdated: modified
+          lastVulnScan: lastVulnScan
+          azureVmId: ./sourceInfo/list/AzureAssetSourceSimple/vmId
+          azureRgName: ./sourceInfo/list/AzureAssetSourceSimple/resourceGroupName
+          azurePublicIp: ./sourceInfo/list/AzureAssetSourceSimple/publicIpAddress
+          azurePrivateIp: ./sourceInfo/list/AzureAssetSourceSimple/privateIpAddress
+          azureSubscriptionId: ./sourceInfo/list/AzureAssetSourceSimple/subscriptionId
+
+      - name: Vulns
+        columns: |
+          id INTEGER PRIMARY KEY,
+          qid INTEGER,
+          firstFound DATETIME,
+          lastFound DATETIME,
+          hostAssetsId INTEGER,
+          FOREIGN KEY (hostAssetsId)
+              REFERENCES HostAssets (id)
+        data_source: xml:.//HostAssetVuln
+        input_map:
+          id: hostInstanceVulnId
+          qid: qid
+          firstFound: firstFound
+          lastFound: lastFound
+        # Similar to `input_map` but mapping is parametrized with any {table_column}
+        # already defined in the `input_map` section. Prior to running XPath match,
+        # each {table_column} is expanded with a value already acquired for `input_map`.
+        input_map_parametrized:
+          hostAssetsId: ".//HostAssetVuln/[hostInstanceVulnId='{id}']/.../.../.../id"
+
+    # Path to directory with Jinja2 templates for reports
+    template_dir: "/home/user/.yager/templates/"
+
+  # Templated reports
+  reports:
+    - name: "single_sub_md"
+      description: |
+        Report provides detailed Qualys vulnerability data for an individual Azure subscription.
+        It expects the following parameters to be provided in CLI:
+          * `sub_id` - Subscription ID from `AzureSubscriptions` table
+      template_file: "report_single_sub_md.j2"
+      template_params:
+        - query: |
+            -- Subscription details
+            SELECT
+              id,
+              name,
+              contactName,
+              contactEmail
+            FROM
+              AzureSubscriptions
+            WHERE
+              id == '{sub_id}'
+          var_mapping:
+            subscription_id: id
+            subscription_name: name
+            subscription_poc_name: contactName
+            subscription_poc_email: contactEmail
+
+        - query: |
+            -- Vuln details for all hosts in subscription
+            SELECT
+                HostAssets.name as host_name,
+                HostAssets.azureVmId as host_vm_id,
+                Vulns.firstFound as vuln_seen_first,
+                Vulns.lastFound as vuln_seen_last,
+                Vulns.qid as vuln_qid,
+                QualysKB.severity_level as vuln_level
+            FROM
+                HostAssets
+                INNER JOIN Vulns ON Vulns.hostAssetsId = HostAssets.id
+                INNER JOIN QualysKB ON QualysKB.qid = Vulns.qid
+            WHERE
+                HostAssets.azureSubscriptionId == '{sub_id}'
+                AND QualysKB.vuln_type != "Information Gathered";
+          var_mapping:
+            all_vuln_details: "*"
+
+        - query: |
+            -- Additional host details
+            SELECT
+                HostAssets.name as host_name,
+                HostAssets.fqdn as host_fqdn,
+                HostAssets.os as host_os,
+                HostAssets.lastVulnScan as host_last_scan,
+                HostAssets.azureRgName as host_rg,
+                HostAssets.azureVmId as host_vm_id,
+                HostAssets.azurePrivateIp as host_priv_ip,
+                HostAssets.azurePublicIp as host_pub_ip
+            FROM
+                HostAssets
+            WHERE
+                HostAssets.azureSubscriptionId == '{sub_id}'
+          var_mapping:
+            all_host_details: "*"
+
+        - query: |
+            -- Reference information from Qualys Knowledge Base
+            SELECT
+                QualysKB.qid as vuln_qid,
+                QualysKB.severity_level as vuln_level,
+                QualysKB.title as vuln_title,
+                QualysKB.diagnosis as vuln_details,
+                QualysKB.consequence as vuln_risk,
+                QualysKB.solution as vuln_solution
+            FROM
+                QualysKB
+          var_mapping:
+            kb_details: "*"
+
+# Logging configuration
+log.colorlog:
+  # Whether or not to colorize the log file.
+  # colorize_file_log: false
+
+  # Whether or not to colorize the console log.
+  # colorize_console_log: true
+
+  # Where the log file lives (no log file by default)
+  # file: null
+
+  # The level for which to log.  One of: info, warning, error, fatal, debug
+  # level: INFO
+
+  # Whether or not to log to console
+  # to_console: true
+
+  # Whether or not to rotate the log file when it reaches `max_bytes`
+  # rotate: false
+
+  # Max size in bytes that a log file can grow until it is rotated.
+  # max_bytes: 512000
+
+  # The maximum number of log files to maintain when rotating
+  # max_files: 4
